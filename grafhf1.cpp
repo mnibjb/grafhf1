@@ -133,20 +133,17 @@ float func(float x, float y){
 //-----
 //Antenna:
 // -5000 <= antenna_x, antenna_y <= 5000
-float antenna_x;
-float antenna_y;
+Vector antenna;
 const float antenna_height = 20;
 const char transport_antenna = 't';
 //-----
 
 //-----
 //Hansel
-float hx;
-float hy;
+Vector h;
 Vector hv;
 //Gretel
-float gx;
-float gy;
+Vector g;
 Vector gv;
 //-----
 
@@ -169,12 +166,12 @@ void onInitialization( ) {
 	}
 
 	srand(glutGet(GLUT_ELAPSED_TIME)); // Ekkor mar inicializalt a GLUT
-	antenna_x = rand() % 10000 - 5000;
-	antenna_y = rand() % 10000 - 5000;
-	hx = rand() % 10000 - 5000;
-	hy = rand() % 10000 - 5000;
-	gx = rand() % 10000 - 5000;
-	gy = rand() % 10000 - 5000;
+	antenna.x = rand() % 10000 - 5000;
+	antenna.y = rand() % 10000 - 5000;
+	h.x = rand() % 10000 - 5000;
+	h.y = rand() % 10000 - 5000;
+	g.x = rand() % 10000 - 5000;
+	g.y = rand() % 10000 - 5000;
 
   //  // Peldakent keszitunk egy kepet az operativ memoriaba
   //  for(int Y = 0; Y < screenHeight; Y++)
@@ -210,8 +207,8 @@ void onDisplay( ) {
 void onKeyboard(unsigned char key, int x, int y) {
     if (key == 'd') glutPostRedisplay( ); 		// d beture rajzold ujra a kepet
 	if (key == transport_antenna){
-		antenna_x = rand() % 10000 - 5000;
-		antenna_y = rand() % 10000 - 5000;
+		antenna.x = rand() % 10000 - 5000;
+		antenna.y = rand() % 10000 - 5000;
 		glutPostRedisplay( );
 	}
 }
@@ -219,11 +216,13 @@ void onKeyboard(unsigned char key, int x, int y) {
 // Eger esemenyeket lekezelo fuggveny
 void onMouse(int button, int state, int x, int y) {
     if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN){   // A GLUT_LEFT_BUTTON / GLUT_RIGHT_BUTTON illetve GLUT_DOWN / GLUT_UP
-		hv = Vector(x,y);
+		Vector t = Vector(x-h.x,y-h.y);
+		hv = t*(1/t.Length());
 		glutPostRedisplay( ); 						 // Ilyenkor rajzold ujra a kepet
 	}
 	if (button == GLUT_RIGHT_BUTTON && state == GLUT_DOWN){   // A GLUT_LEFT_BUTTON / GLUT_RIGHT_BUTTON illetve GLUT_DOWN / GLUT_UP
-		gv = Vector(x,y);
+		Vector t = Vector(x-g.x,y-g.y);
+		gv = t*(1/t.Length());
 		glutPostRedisplay( ); 						 // Ilyenkor rajzold ujra a kepet
 	}
 }
