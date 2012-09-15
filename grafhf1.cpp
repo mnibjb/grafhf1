@@ -117,6 +117,8 @@ const int screenHeight = 600;
 const int imageWidth = 5000;
 const int imageHeight = 5000;
 
+const float PI = atan((float)1.0)*4;
+
 Color image[screenWidth*screenHeight];	// egy alkalmazás ablaknyi kép
 
 //-----
@@ -126,10 +128,14 @@ Color image[screenWidth*screenHeight];	// egy alkalmazás ablaknyi kép
 //-----
 float func(float x, float y){
 	//return (cos(1000*x)*sin(1000*y)+1)*(1014-250)/2+250;
-	return ((x+y)+10000)/20000*(1014-250)+250;
+	//return ((x+y)+10000)/20000*(1014-250)+250;
+	return ((x*x+x*x*x*y+y*y+x*y+y)+624999975005000)/(624999975005000+625000075005000)*(1014-250)+250;
 	//return (sin(1000*x + 1000000*y*y)+1)*(1014-250)/2+250;
 }
-
+// df/dx és df/dy egy vektorban
+Vector gradFunc(float x, float y){
+	return Vector(((float)2*x+y+3*x*x*y), ((float)1+x+x*x*x+2*y)*(191/312500012502500));
+}
 //-----
 //Antenna:
 // -5000 <= antenna_x, antenna_y <= 5000
@@ -140,38 +146,56 @@ const char transport_antenna = 't';
 
 //-----
 //Hansel
-Vector h;
-Vector hv;
+Vector h; //pozicio
+Vector hd; // irany
 //Gretel
-Vector g;
-Vector gv;
+Vector g; // pozicio
+Vector gd; // irany
 //-----
 
-//Szimulacio:
+//Szimulacio
 const float dt = 100;
 const int V = 1000; // vizszintes talajon elerheto sebesseg
-
+// M fokban!
+float vFromM(float M){
+	return V*(1-M/90);
+}
 
 // Inicializacio, a program futasanak kezdeten, az OpenGL kontextus letrehozasa utan hivodik meg (ld. main() fv.)
 void onInitialization( ) { 
 	glViewport(0, 0, screenWidth, screenHeight);
 
-	for(int i = -imageWidth; i < imageWidth; i++){
+	/*for(int i = -imageWidth; i < imageWidth; i++){
 		for(int j = -imageHeight; j < imageHeight; j++){
 			int x = (float)(i + imageWidth) / (2*imageWidth) * screenWidth;
 			int y = (float)(j + imageHeight) / (2*imageHeight) * screenHeight;
 			float rgb = (func(i,j) - 250)/(1014-250);
 			image[y*screenWidth + x] = Color(rgb,rgb,rgb);
 		}
+	}*/
+
+	for(int i = 0; i < screenWidth; i++){
+		for(int j = 0; j < screenHeight; j++){
+			float x = (float)2*imageWidth/screenWidth * i - imageWidth;
+			float y = (float)2*imageHeight/screenHeight * j - imageHeight;
+			float rgb = (func(x,y) - 250)/(1014-250);
+			image[(int)j*screenWidth + int(i)] = Color(rgb,rgb,rgb);
+		}
 	}
 
-	srand(glutGet(GLUT_ELAPSED_TIME)); // Ekkor mar inicializalt a GLUT
+//	srand(glutGet(GLUT_ELAPSED_TIME)); // Ekkor mar inicializalt a GLUT
+
 	antenna.x = rand() % 10000 - 5000;
 	antenna.y = rand() % 10000 - 5000;
+	antenna.z = func(antenna.x, antenna.y) + antenna_height;
+
 	h.x = rand() % 10000 - 5000;
 	h.y = rand() % 10000 - 5000;
+	h.z = func(h.x, h.y);
+
 	g.x = rand() % 10000 - 5000;
 	g.y = rand() % 10000 - 5000;
+	g.z = func(g.x, g.y);
 
   //  // Peldakent keszitunk egy kepet az operativ memoriaba
   //  for(int Y = 0; Y < screenHeight; Y++)
@@ -179,6 +203,8 @@ void onInitialization( ) {
 		//	image[Y*screenWidth + X] = Color((float)X/screenWidth, (float)Y/screenHeight, 0);
 
 }
+// Terero van-e
+bool reception = false;
 
 // Rajzolas, ha az alkalmazas ablak ervenytelenne valik, akkor ez a fuggveny hivodik meg
 void onDisplay( ) {
@@ -190,14 +216,37 @@ void onDisplay( ) {
     // Peldakent atmasoljuk a kepet a rasztertarba
     glDrawPixels(screenWidth, screenHeight, GL_RGB, GL_FLOAT, image);
     // Majd rajzolunk egy kek haromszoget
-	/*glColor3f(0, 0, 1);
-	glBegin(GL_TRIANGLES);
+	glColor3f(0, 0, 1);
+	/*glBegin(GL_TRIANGLES);
 		glVertex2f(-0.2f, -0.2f);
 		glVertex2f( 0.2f, -0.2f);
 		glVertex2f( 0.0f,  0.2f);
 	glEnd( );*/
 
-    // ...
+	glPointSize(10.0f);
+	glColor3f(1.0f,0.0f,0.0f);// Hansel RED
+	glBegin(GL_POINTS);
+		glVertex2f(h.x/imageWidth, h.y/imageHeight);		
+	glEnd();
+	glColor3f(0.0f,1.0f,0.0f);
+	glBegin(GL_POINTS);		// Gretel GREEN
+		glVertex2f(g.x/imageWidth, g.y/imageHeight);		
+	glEnd();
+	glColor3f(1.0f,1.0f,0.0f);// Antenna YELLOW
+	glBegin(GL_TRIANGLES);
+		glVertex2f((antenna.x-100)/imageWidth, (antenna.y-100/3*sqrt(3.0))/imageHeight); 
+		glVertex2f((antenna.x+100)/imageWidth, (antenna.y-100/3*sqrt(3.0))/imageHeight); 
+		glVertex2f(antenna.x/imageWidth, (antenna.y+150*sqrt(3.0))/imageHeight); 
+	glEnd();
+
+	if(reception){
+		glColor3f(1.0f,0.0f,0.0f);
+		glBegin(GL_TRIANGLES);
+			glVertex2f(h.x/imageWidth, h.y/imageHeight);
+			glVertex2f(g.x/imageWidth, g.y/imageHeight);
+			glVertex2f(antenna.x/imageWidth, antenna.y/imageHeight);
+		glEnd();
+	}
 
     glutSwapBuffers();     				// Buffercsere: rajzolas vege
 
@@ -209,29 +258,116 @@ void onKeyboard(unsigned char key, int x, int y) {
 	if (key == transport_antenna){
 		antenna.x = rand() % 10000 - 5000;
 		antenna.y = rand() % 10000 - 5000;
+		antenna.z = func(antenna.x, antenna.y) + antenna_height;
 		glutPostRedisplay( );
 	}
+}
+
+const float delta = 0.01;
+float total_time = 0;
+float mobile_time = 0;
+void CheckReception(float dt_){
+	//Hansel reception
+	bool hr = true;
+	for(float t = 0; t < 1; t += delta){
+		float x = h.x * t + antenna.x * (1-t);
+		float y = h.y * t + antenna.y * (1-t);
+		float z = h.z * t + antenna.z * (1-t);
+		if(func(x,y) > z){
+			hr = false;
+			break;
+		}
+	}
+	//Gretel reception
+	bool gr = true;
+	for(float t = 0; t < 1; t += delta){
+		float x = g.x * t + antenna.x * (1-t);
+		float y = g.y * t + antenna.y * (1-t);
+		float z = g.z * t + antenna.z * (1-t);
+		if(func(x,y) > z){
+			gr = false;
+			break;
+		}
+	}
+	if(hr == true && gr == true){
+		mobile_time += dt;
+		reception = true;
+	}
+	else
+		reception = false;
 }
 
 // Eger esemenyeket lekezelo fuggveny
 void onMouse(int button, int state, int x, int y) {
     if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN){   // A GLUT_LEFT_BUTTON / GLUT_RIGHT_BUTTON illetve GLUT_DOWN / GLUT_UP
-		Vector t = Vector(x-h.x,y-h.y);
-		hv = t*(1/t.Length());
+		Vector t = Vector(x,y) - h;
+		t.z = 0;
+		hd = t*(1/t.Length()); // normaljuk
 		glutPostRedisplay( ); 						 // Ilyenkor rajzold ujra a kepet
 	}
-	if (button == GLUT_RIGHT_BUTTON && state == GLUT_DOWN){   // A GLUT_LEFT_BUTTON / GLUT_RIGHT_BUTTON illetve GLUT_DOWN / GLUT_UP
-		Vector t = Vector(x-g.x,y-g.y);
-		gv = t*(1/t.Length());
+	else if (button == GLUT_RIGHT_BUTTON && state == GLUT_DOWN){   // A GLUT_LEFT_BUTTON / GLUT_RIGHT_BUTTON illetve GLUT_DOWN / GLUT_UP
+		Vector t = Vector(x,y) - g;
+		t.z = 0;
+		gd = t*(1/t.Length()); // normaljuk
 		glutPostRedisplay( ); 						 // Ilyenkor rajzold ujra a kepet
+	}
+}
+void MovePeople(float dt){
+	//Meredeksegek:
+	float hM = (180/PI) * atan( gradFunc(h.x, h.y) * hd ); // grad f * v ahol v egysegvektor
+	float gM = (180/PI) * atan( gradFunc(g.x, g.y) * gd );
+
+	//Sebessegek:
+	float hv = vFromM( hM );
+	float gv = vFromM( gM );
+
+	//Visszaalakitjuk radianba:
+	hM = (PI/180) * hM;
+	gM = (PI/180) * gM;
+
+	// dt ido alatt v*dt-vel kerul arebb amibol az xy-sikra v*dt*cos(M) esik
+	h.x = h.x + hd.x * hv * dt * cos(hM);
+	h.y = h.x + hd.y * hv * dt * cos(hM);
+	g.x = g.x + gd.x * gv * dt * cos(gM);
+	g.y = g.x + gd.y * gv * dt * cos(gM);
+
+	h.z = func(h.x, h.y);
+	g.z = func(g.x, g.y);
+
+	//Visszapattanunk a falakrol:
+	if(h.x > imageWidth || h.x < -imageWidth)
+		hd.x = -hd.x;
+	if(h.y > imageHeight || h.y < -imageHeight)
+		hd.y = -hd.y;
+	if(g.x > imageWidth || g.x < -imageWidth)
+		gd.x = -gd.x;
+	if(g.y > imageHeight || g.y < -imageHeight)
+		gd.y = -gd.y;
+	
+	if(h.x > 2*imageWidth || h.x < -2*imageWidth || h.y > 2*imageHeight || h.y < -2*imageHeight || g.x > 2*imageWidth || g.x < -2*imageWidth || g.y > 2*imageHeight || g.y < -2*imageHeight)
+		exit(1);
+}
+void SimulateWorld(float tstart, float tend) {
+	for(float ts = tstart; ts < tend; ts += dt) {
+		float te = min(tend, ts + dt);
+		if(ts <= total_time && te >= total_time){
+			CheckReception(te-ts);
+			MovePeople((te-ts)/1000);
+		}
+		total_time += dt;
+		//for each object obj: obj.Control(ts, te);
+		//for each object obj: obj.Animate(ts, te);
 	}
 }
 
 // `Idle' esemenykezelo, jelzi, hogy az ido telik, az Idle esemenyek frekvenciajara csak a 0 a garantalt minimalis ertek
 void onIdle( ) {
-     long time = glutGet(GLUT_ELAPSED_TIME);		// program inditasa ota eltelt ido
-
+	float old_time = total_time;
+	float time = glutGet(GLUT_ELAPSED_TIME);		// program inditasa ota eltelt ido
+	SimulateWorld(old_time, time);	
 }
+
+
 
 // ...Idaig modosithatod
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
