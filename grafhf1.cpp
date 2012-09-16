@@ -134,7 +134,9 @@ float func(float x, float y){
 }
 // df/dx és df/dy egy vektorban
 Vector gradFunc(float x, float y){
-	return Vector(((float)2*x+y+3*x*x*y), ((float)1+x+x*x*x+2*y)*(191/312500012502500));
+	Vector t = Vector(((float)2*x+y+3*x*x*y), ((float)1+x+x*x*x+2*y));
+	t = t*(191/312500012502500);
+	return t;
 }
 //-----
 //Antenna:
@@ -183,7 +185,7 @@ void onInitialization( ) {
 		}
 	}
 
-//	srand(glutGet(GLUT_ELAPSED_TIME)); // Ekkor mar inicializalt a GLUT
+	srand(glutGet(GLUT_ELAPSED_TIME)); // Ekkor mar inicializalt a GLUT
 
 	antenna.x = rand() % 10000 - 5000;
 	antenna.y = rand() % 10000 - 5000;
@@ -205,7 +207,8 @@ void onInitialization( ) {
 }
 // Terero van-e
 bool reception = false;
-
+float total_time = 1; // osszes ido
+float mobile_time = 0; // mobilozassal eltolthetett ido
 // Rajzolas, ha az alkalmazas ablak ervenytelenne valik, akkor ez a fuggveny hivodik meg
 void onDisplay( ) {
     glClearColor(0.1f, 0.2f, 0.3f, 1.0f);		// torlesi szin beallitasa
@@ -247,6 +250,22 @@ void onDisplay( ) {
 			glVertex2f(antenna.x/imageWidth, antenna.y/imageHeight);
 		glEnd();
 	}
+	float width = 0.05f;
+	glColor3f(1.0f,0.7529f,0.0f); // Orange
+	glBegin(GL_QUADS);
+		glVertex2f(-1.0f+width,1.0f-width);
+		glVertex2f(-1.0f+width,1.0f-3*width);		
+		glVertex2f(mobile_time/total_time*(2-2*width)-1+width,1.0f-3*width);
+		glVertex2f(mobile_time/total_time*(2-2*width)-1+width,1.0f-width);
+	glEnd();
+	glColor3f(0.0f,0.0f,0.0f); // Black
+	glBegin(GL_QUADS);
+		glVertex2f(+1.0f-width,1.0f-width);
+		glVertex2f(+1.0f-width,1.0f-3*width);		
+		glVertex2f(mobile_time/total_time*(2-2*width)-1+width,1.0f-3*width);
+		glVertex2f(mobile_time/total_time*(2-2*width)-1+width,1.0f-width);
+	glEnd();
+
 
     glutSwapBuffers();     				// Buffercsere: rajzolas vege
 
@@ -264,8 +283,7 @@ void onKeyboard(unsigned char key, int x, int y) {
 }
 
 const float delta = 0.01;
-float total_time = 0;
-float mobile_time = 0;
+
 void CheckReception(float dt_){
 	//Hansel reception
 	bool hr = true;
@@ -298,7 +316,18 @@ void CheckReception(float dt_){
 }
 
 // Eger esemenyeket lekezelo fuggveny
-void onMouse(int button, int state, int x, int y) {
+void onMouse(int button, int state, int x_, int y_) {
+	// Koordinatatranszformacio:
+	// (0,0) -----> (screenWidth, 0)								^		(imageWidth, imageHeight)
+	//   |															|
+	//   |							-->								|
+	//   |										--------------------|--------------------->
+	//   \/															|
+	//(0,screenHeight)				(-imageWidth, -imageHeight)		|
+	y_ = screenHeight - y_;
+	float x = 2 * imageWidth / screenWidth * x_ - imageWidth;
+	float y = 2 * imageHeight / screenHeight * y_ - imageHeight;
+
     if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN){   // A GLUT_LEFT_BUTTON / GLUT_RIGHT_BUTTON illetve GLUT_DOWN / GLUT_UP
 		Vector t = Vector(x,y) - h;
 		t.z = 0;
@@ -327,9 +356,9 @@ void MovePeople(float dt){
 
 	// dt ido alatt v*dt-vel kerul arebb amibol az xy-sikra v*dt*cos(M) esik
 	h.x = h.x + hd.x * hv * dt * cos(hM);
-	h.y = h.x + hd.y * hv * dt * cos(hM);
+	h.y = h.y + hd.y * hv * dt * cos(hM);
 	g.x = g.x + gd.x * gv * dt * cos(gM);
-	g.y = g.x + gd.y * gv * dt * cos(gM);
+	g.y = g.y + gd.y * gv * dt * cos(gM);
 
 	h.z = func(h.x, h.y);
 	g.z = func(g.x, g.y);
@@ -344,27 +373,33 @@ void MovePeople(float dt){
 	if(g.y > imageHeight || g.y < -imageHeight)
 		gd.y = -gd.y;
 	
-	if(h.x > 2*imageWidth || h.x < -2*imageWidth || h.y > 2*imageHeight || h.y < -2*imageHeight || g.x > 2*imageWidth || g.x < -2*imageWidth || g.y > 2*imageHeight || g.y < -2*imageHeight)
-		exit(1);
+	/*if(h.x > 2*imageWidth || h.x < -2*imageWidth || h.y > 2*imageHeight || h.y < -2*imageHeight || g.x > 2*imageWidth || g.x < -2*imageWidth || g.y > 2*imageHeight || g.y < -2*imageHeight)
+		exit(1);*/
 }
 void SimulateWorld(float tstart, float tend) {
 	for(float ts = tstart; ts < tend; ts += dt) {
 		float te = min(tend, ts + dt);
 		if(ts <= total_time && te >= total_time){
 			CheckReception(te-ts);
-			MovePeople((te-ts)/1000);
+			MovePeople(te-ts);
+			glutPostRedisplay();
+		}
+		else{
+			for( int i = 0; i< 500; i++)
+				i++;
 		}
 		total_time += dt;
 		//for each object obj: obj.Control(ts, te);
 		//for each object obj: obj.Animate(ts, te);
 	}
 }
-
+float time;
 // `Idle' esemenykezelo, jelzi, hogy az ido telik, az Idle esemenyek frekvenciajara csak a 0 a garantalt minimalis ertek
 void onIdle( ) {
 	float old_time = total_time;
+	/*float old_time = time;*/
 	float time = glutGet(GLUT_ELAPSED_TIME);		// program inditasa ota eltelt ido
-	SimulateWorld(old_time, time);	
+	SimulateWorld(old_time, time);
 }
 
 
